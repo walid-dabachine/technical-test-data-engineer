@@ -27,6 +27,12 @@ class MoovitamixApiConnector:
         self.headers = {'Authorization': f'Bearer {self.api_key}'}
 
     def check_connection(self) -> bool:
+        """
+        Check if the api url is reachable
+
+        Returns:
+            bool: true if reachable, false otherwise
+        """
         try:
             response = requests.get(self.base_url, headers=self.headers)
             response.raise_for_status()
@@ -37,6 +43,15 @@ class MoovitamixApiConnector:
             return False
 
     def _make_request(self, url: str, **kwargs) -> Union[Dict[str, Any], None]:
+        """
+        Call the API and returns response in json format
+
+        Args:
+            url (str): api url
+
+        Returns:
+            Union[Dict[str, Any], None]: json representation of the api response
+        """
         try:
             response = requests.get(url, headers=self.headers, params=kwargs)
             response.raise_for_status()
@@ -56,15 +71,43 @@ class MoovitamixApiConnector:
         return None
 
     def fetch_tracks_from_api(self) -> pd.DataFrame:
+        """
+        Wrapper function to call the fetching of the track endpoint
+
+        Returns:
+            pd.DataFrame: track pandas DataFrame
+        """
         return self._fetch_endpoint_from_api(endpoint=Endpoint.TRACKS, endpoint_model_class=Track)
 
     def fetch_users_from_api(self) -> pd.DataFrame:
+        """
+        Wrapper function to call the fetching of the user endpoint
+
+        Returns:
+            pd.DataFrame: user pandas DataFrame
+        """
         return self._fetch_endpoint_from_api(endpoint=Endpoint.USERS, endpoint_model_class=User)
 
     def fetch_listen_history_from_api(self) -> pd.DataFrame:
+        """
+        Wrapper function to call the fetching of the listen_history endpoint
+
+        Returns:
+            pd.DataFrame: listen_history pandas DataFrame
+        """
         return self._fetch_endpoint_from_api(endpoint=Endpoint.LISTEN_HISTORY, endpoint_model_class=ListenHistory)
 
     def _fetch_endpoint_from_api(self, endpoint: Endpoint, endpoint_model_class: BaseModel) -> pd.DataFrame:
+        """
+        Call an API endpoint and fetch data into a pandas DataFrame
+
+        Args:
+            endpoint (Endpoint): API Endpoint to call
+            endpoint_model_class (BaseModel): Data model describing the interface the data should follow
+
+        Returns:
+            pd.DataFrame: pandas DataFrame with the data fetched from the API endpoint
+        """
         json_records = self._fetch_data_from_api(endpoint=endpoint)
         validated_records = validate_datasource(json_records=json_records, cls=endpoint_model_class)
         df_records = pd.DataFrame([record.model_dump() for record in validated_records])
@@ -84,6 +127,15 @@ class MoovitamixApiConnector:
             print(f"An error occurred while saving the DataFrame to Parquet: {e}")
 
     def _fetch_data_from_api(self, endpoint: Endpoint) -> List[Dict[str, Any]]:
+        """
+        Fetches the data from an API endpoint in json format
+
+        Args:
+            endpoint (Endpoint): API Endpoint to call
+
+        Returns:
+            List[Dict[str, Any]]: API's json response
+        """
         url = f"{self.base_url}/{endpoint.value}"
         data = []
         response_json = self._make_request(url, size=self.PAGE_SIZE, page=1)

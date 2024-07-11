@@ -28,7 +28,9 @@
     ```shell
     pytest -rA
     ```
-    Un total de 5 tests unitaires doivent passer avec succès
+    Un total de 5 tests unitaires doivent passer avec succès.
+    
+    Par manque de temps je n'ai pas pu implémenter tous les tests qui me semblaient nécessaire. J'ai quand même pris le temps d'en mettre en place au moins un pour montrer la marche à suivre
 
 ## ⚡ Lancement de l'extraction des données
 
@@ -58,7 +60,9 @@
         ```shell
         python src/moovitamix_data_connector/main.py --scheduling yes
         ```
-    - Se rendre sur le dashboard à l'adresse affichée précedemment pour suivre le lancement des runs à chaque minute et leur état. Pour l'instant le projet n'implémente pas de méthodologie de versioning, les données sont donc extraites et écrasées à chaque minute sous `src/01_source`.
+    - Se rendre sur le dashboard à l'adresse affichée précedemment pour suivre le lancement des runs à chaque minute et leur état (sous l'onglet `Deployments`).
+    
+        Pour l'instant le projet n'implémente pas de méthodologie de versioning, les données sont donc extraites et écrasées à chaque minute sous `src/01_source`.
 
 ## 📖 Description des choix techniques du projet
 

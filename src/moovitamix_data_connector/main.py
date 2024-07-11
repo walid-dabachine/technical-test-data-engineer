@@ -11,18 +11,39 @@ from moovitamix_data_connector.utils import get_project_root, load_yaml
 
 @task(name="fetch_tracks_datasource", log_prints=True)
 def fetch_tracks_datasource(moovitamix_api_connector: MoovitamixApiConnector, datacatalog: Dict) -> None:
+    """
+    Fetch data from Moovitamix's track endpoint and save it in parquet
+
+    Args:
+        moovitamix_api_connector (MoovitamixApiConnector): Instance of the MoovitamixApiConnector class
+        datacatalog (Dict): datacatalog containing the destination path where to save data
+    """
     if moovitamix_api_connector.check_connection():
         tracks_df = moovitamix_api_connector.fetch_tracks_from_api()
         moovitamix_api_connector.save_dataframe_to_parquet(df=tracks_df, file_path=os.path.join(get_project_root(), datacatalog['src_tracks']['filepath']))
 
 @task(name="fetch_users_datasource", log_prints=True)
 def fetch_users_datasource(moovitamix_api_connector: MoovitamixApiConnector, datacatalog: Dict) -> None:
+    """
+    Fetch data from Moovitamix's user endpoint and save it in parquet
+
+    Args:
+        moovitamix_api_connector (MoovitamixApiConnector): Instance of the MoovitamixApiConnector class
+        datacatalog (Dict): datacatalog containing the destination path where to save data
+    """
     if moovitamix_api_connector.check_connection():
         users_df = moovitamix_api_connector.fetch_users_from_api()
         moovitamix_api_connector.save_dataframe_to_parquet(df=users_df, file_path=os.path.join(get_project_root(), datacatalog['src_users']['filepath']))
 
 @task(name="listen_history", log_prints=True)
 def fetch_listen_history_datasource(moovitamix_api_connector: MoovitamixApiConnector, datacatalog: Dict) -> None:
+    """
+    Fetch data from Moovitamix's listen_history endpoint and save it in parquet
+
+    Args:
+        moovitamix_api_connector (MoovitamixApiConnector): Instance of the MoovitamixApiConnector class
+        datacatalog (Dict): datacatalog containing the destination path where to save data
+    """
     if moovitamix_api_connector.check_connection():
         listen_history_df = moovitamix_api_connector.fetch_listen_history_from_api()
         moovitamix_api_connector.save_dataframe_to_parquet(df=listen_history_df, file_path=os.path.join(get_project_root(), datacatalog['src_listen_history']['filepath']))

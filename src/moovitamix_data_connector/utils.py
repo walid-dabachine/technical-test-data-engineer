@@ -6,6 +6,16 @@ from pydantic import BaseModel, ValidationError
 
 
 def validate_datasource(json_records: List[dict], cls: Type) -> List[BaseModel]:
+    """
+    Given an API's response in json, this function make sure that the data fetched is aligned with the data model adheres to the data model interface
+
+    Args:
+        json_records (List[dict]): API's response in json
+        cls (Type): class defining the data model interface
+
+    Returns:
+        List[BaseModel]: List of data records represented through the data model interface
+    """
     validated_records = []
     for json_record in json_records:
         try:
