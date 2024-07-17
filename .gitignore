@@ -13,6 +13,16 @@ Icon
 # Thumbnails
 ._*
 
+# Data files that should not be versioned except data folders to preserve the structure of the data modeling
+data/01_source/*
+!data/01_source/.gitkeep
+
+data/02_staging/*
+!data/02_staging/.gitkeep
+
+data/03_mart/*
+!data/03_mart/.gitkeep
+
 # Files that might appear in the root of a volume
 .DocumentRevisions-V100
 .fseventsd
