@@ -66,7 +66,7 @@
 
 ## 📖 Description des choix techniques du projet
 
-Globalement, le projet se découpe en X thématiques techniques :
+Globalement, le projet se découpe en 7 thématiques techniques :
 
 1. Setup du projet
 2. Connecteur API Moovitamix
@@ -139,6 +139,105 @@ plus d'info dans les [best bractices dbt](https://docs.getdbt.com/terms/dimensio
 
 - J'ai utilisé `Prefect` car moins verbeux qu'une solution comme `Airflow`. Avec le peu de temps que j'ai, j'ai préféré opté pour cette solution pour implémenter rapidement une soltuion d'orchestration. L'inconvénient d'une solution comme `Prefect` est sa maturité relativement faible en comparaison à `Airflow` qui est la solution la plus populaire dans l'écosystème Python.
 
-- Ma solution n'implémente pas pour l'instant de versioning, à chaque run du job les données fraiches viendront écrasées les anciennes données. Si j'avais plus de temps j'aurais d'abord commencé par analyser les différentes options à ma disposition pour implémenter ce versioning. Cela peut passer par différentes options comme:
+- Ma solution n'implémente pas pour l'instant de versioning, à chaque run du job les données fraiches viendront écraser les anciennes données. Si j'avais plus de temps j'aurais d'abord commencé par analyser les différentes options à ma disposition pour implémenter ce versioning. Cela peut passer par différentes possibilités comme:
     - un format de données qui gère by design les versions (ex: delta lake qui est du parquet sous stéroide)
     - une structure de fichier/dossier qui conserve la tracabilité (ex: un dossier par date, avec un dossier `latest` contenant en tout temps la version la plus à jour des données)
+
+### 5. Monitoring de la santé du pipeline
+
+#### 5.1 Le monitoring, à quoi ça sert ?
+
+Le monitoring de la santé du pipeline est un point important car il permet en tout temps de savoir si la pipeline de données fonctionne comme convenu. 
+Cela couvre des questions comme :
+    
+* La pipeline s'est elle bien lancée ?
+* Il y a t-il eu des erreurs/warnings ?
+* Le temps d'exécution de ma pipeline a t-elle été plus long que d'habitude ?
+* La qualité des données ingérées est-elle conforme à l'attendu
+
+Pour être pleinement robuste, une pipeline de données doit être équipée d'une couche de monitoring qui aidera à apporter les réponses à ces questions.
+
+#### 5.2 Comment y arriver ?
+
+Avant de penser à une solution de monitoring en particulier, il est important de s'assurer de la mise en place d'un ensemble de must-haves :
+
+* Émission de logs et de métriques: Une pipeline qui génère un ensemble de logs et de métriques CLAIRS et PERTINENTS sur la santé de l'éxecution de la pipeline. Ceci doit être fait de manière centralisée afin d'en faciliter le traitement à postériori. Rien de pire que devoir réconcilier différents flux de logs/métriques vivant à différents endroits...
+
+* Collecte et stockage: les logs, les métriques et l'historique des exécutions sont des informations qui doivent être collectées et stocker de manière sécuritaire par la solution de monitoring
+
+* Qualité de données: un ensemble de tests doivent être mis en place pour s'assurer du niveau de qualité des données (schéma de données, complétude, exactitude, fraicheur, ...)
+
+* Observabilité: Une solution de dashboarding simple d'utilisation permettant de visualiser les logs, les métriques et l'historique des runs
+
+* Infrastructure fiable: qu'elle soit hostée ou managée, la solution choisie doit garantir la disponibilité, l'accessibilité, la scalabilité et la sécurité de la solution et des données. Cet outil est une tour de controle qui doit être fiable en tout temps.
+
+* Alerting: sur la base des métriques collectées, définir des seuils qui permettront de déclencher des alertes automatisées
+
+#### 5.3 Quelles métriques observer ?
+
+Il y a énormément de métriques qui peuvent être implémentées dépendemment de contexte et de l'infrastructure. Globalement je les décomposerai en 3 catégories:
+
+1. Qualité de données
+    * Nombre de tests de données en erreur/succès
+    * Taux de doublons
+    * Taux de valeurs manquantes
+
+2. Performance
+    * Quantité de données ingérées
+    * Temps d'exécution
+    * Usage CPU
+    * Usage Mémoire
+
+3. Erreurs
+    * Nombre/Taux d'erreurs (peut être décomposer par types d'erreur: validation de donnée, compute, ...)
+    * Nombre de warnings
+
+Sur la base de ces métriques nous pouvons définir seuils qui vont déclencher des alertes automatisées. Ceci peut être accompagné d'un système de reporting générant un rapport templatisé et envoyé à la fréquence de notre choix (ici quotidienne) via des canaux adaptés (courriel, slack, ...)
+
+### 6 et 7. Automatisation du calcul des recommendations
+
+Je vais répondre dans cette section à la fois à la question 6 et 7.
+
+Nous avons traité dans les parties précédentes le volet données, nous allons à présent nous intéresser à la partie modélisation et architecture.
+
+Avant de se lancer dans l'implémentation du système de recommandation, il convient d'abord de concevoir l'architecture du système au global. Nous parlons ici de système car le livrable final est une solution ML, plutôt complexe, et composée de différentes composantes qui communiquent les unes avec les autres.
+
+Revenons tout d'abors au besoin client. Nous voulons créer un système pour recommander à nos utilisateurs des listes de lecture. Pour concevoir la solution, nous devons prendre en compte différents aspects qui n'ont pas nécessairement été évoqué par le client:
+
+1. A quelle fréquence vont être servies les recommendations de listes de lecture ? Je vois au moins 2 scénarios basiques :
+    
+    - 1.1. On met à jour les recommendations d'un utilisatuer à chaque nouvelle mise à jour de son historique (ex: après l'écoute d'un nouveau titre). L'avantage est que l'utilisateur se voit constamment proposer de nouvelles recommendatins fraiches. L'inconvénient est que cela est très gourmand en ressource et nécessite des choix d'architecture plus complexes qui font notamment entrer en jeu des composantes streaming pour permettre une interrogation du modèle en temps réel.
+
+    - 1.2. On met à jour les recommendations d'un utilisateur à une fréquence régulière (ex: à chaque 24h). L'avantage est que l'inférence se fait en mode batch, beaucoup moins gourmandes en ressources. L'inconvénient est que les recommendations ne sont pas les plus fraiches. A noter que dans ce cas de figure, les recommendations seront pré-crunchées pour tous les utilisateurs de la base, ce qui peut être très coûteux. Il existe des stratégies pour diminuer le coût, par exemple, générer les recommendations que pour les clients actifs et/ou les tops clients.
+
+2. Quelle est l'interface qui va être responsable de servir les prédictions ? BD, API, fichiers plats (csv, parquet, ...) ? Afin de répondre à cette question, il faut notamment comprendre quels sont les systèmes downstream qui vont consommer les prédictions (web app, mobile, job, ...). En règle générale, lorsqu'il s'agit d'intégrer un modèle de ML à des systèmes complexes, le principal challenge est de le rendre intéropérable. Dans ce genre de cas de figure, l'utilisation d'API pour exposer un modèle sous forme de service tout en abstrayant sa complexité, est une solution de choix. Pour garantir la robustesse du système, les recommendations pourraient d'abord être inscrits dans une BD une fois le batch d'inférence terminé puis l'API serait chargée uniquement d'interroger la BD pour collecter les résultats
+
+3. Quelle est la fréquence de ré-entrainement du modèle ? On fait l'hypothèse ici que le modèle est réentrainé de manière automatique que lorsque les performances du modèle chutent.
+
+Si on prend un peu de hauteur, décider sur ces composantes d'architecture, ça revient finalement à arbitrer entre 3 composantes: à quelle fréquence est servi le client, à quelle vitesse et pour quel coût.
+
+Parfait! Sur la base d'hypothèses, qu'il faudrait dans un contexte réel vérifier bien sûr avec le client, nous venons de définir quelques concepts clés de notre solution. Voici à présent une liste des composantes possibles de ce système (tous ces composants ne sont pas indispensables):
+
+1. Une pipeline de feature engineering (collecte, cleaning et enrichissement des données)
+2. Une pipeline d'entraînement du modèle (comprenant également l'évaluation et la validation du modèle)
+3. Une pipeline d'inférence
+5. Model registry: en charge de conserver l'historique des modèles utilisés et de tagger le modèle de référence
+6. Feature Store: magasin de features en charge de stocker les features et d'éviter de les recalculer lorsqu'elles ont déjà été calculées dans le passé et sont disponibles
+7. Service de serving (API): module en charge de servir les prédictions, via API, en lisant la BD populée par la pipeline d'inférence
+8. Module de monitoring: Connecté au module de serving il est en charge de mesurer en temps réel la performance du modèle et de détecter de potentiels chutes de performance (drift)
+9. CI/CD: Pour automatiser l'intégration, le build et le déploiement de la solution dans l'infrastructure cible
+10. (Une dernière composante que je mets un peu entre parenthèses dépendemment du besoin de l'équipe DS et du niveau de maturité de ce qui est souhaité: une plateforme d'expérimentation permettant à l'équipe d'itérer sur leurs modèles tout en gardant l'historique des itérations)
+
+Voici un diagramme très simplifié décrivant ce processus avec quelques solutions sur le marché permettant de répondre aux besoins :
+
+![alt text](architecture_diagram.png)
+
+Pour automatiser le réentrainement du modèle de recommendation nous avons besoin de 4 éléments:
+
+1. Une couche de monitoring ayant accès à l'historique des prédictions
+2. Une métrique permettant de mesurer la performance réelle du modèle en production. C'est peut être une des étapes la plus complexe, étant donné qu'il est assez chalengeant de mesurer la performance d'une recommendation car n'il y a pas de ground truth. Quelques pistes:
+    * mettre en place une feedback loop active avec les utilisateurs (ex: like, dislike, ...) permettant d'avoir un signal sur la validité de cette recommendation
+    * mettre en place une feedback loop passive permettant de mesurer si la recommendation a fait son effet (ex: la musique a été écoutée, pendant un certain temps long, ...)
+    * mettre en place une feedback loop à base de règle d'affaires qui permettent de qualifier la validité de la recommendation (ex: si la playlist est assez variée tout en gardant une cohérence avec le profil de l'utilisateur, alors c'est un succès)
+3. Définir des règles/seuils permettant de qualifier le type de drift pour lequel on veut déclencher un réentrainement
+4. Définir la mécanique de déclenchement et connecter la solution de monitoring à notre solution d'orchestration
